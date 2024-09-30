@@ -1,8 +1,6 @@
 require "gosu"
 
 class Player
-    attr_accessor :x, :y, :look_direction
-
     def initialize(window)
         @sprite = Gosu::Image.new("media/img/char.png")
         @x = @y = 0.0
@@ -96,21 +94,37 @@ class Player
 end
 
 
-class Bullet
-    def initialize(window, x, y, direction)
-        @bullet = Gosu::Image.new("media/img/char.png")
-        @x, @y = x, y
-        @x_velocity = 2 * direction
-        @scale = 0.1
+class Gun
+    class Bullet < self
+        def initialize(x,y,direction)
+            @bullet = Gosu::Image.new("media/img/char.png")
+            @x, @y = x,y
+            @direction = direction
+            @x_velocity = 2 * direction
+            @scale = 0.1
+        end
+
+    end
+
+    def initialize(window)
         @window = window
+        @bullets = []
+    end
+
+    def shoot()
+        if @window.button_down?(Gosu::KbP)
+            bullet = Bullet.new(@window.player.x, @window.player.y, @window.player.look_direction)
+            @bullets << bullet
+        end
     end
     
-    def update
-        @x += @x_velocity
+    def update()
+        shoot()
+        @bullets.each {|bullet| bullet}
     end
 
     def draw
-        @bullet.draw(@x, @y, 0, @scale)
+        @bullet.draw(@x, @y, 0, @scale, @scale)
     end
 end
 
@@ -125,15 +139,8 @@ class Main < Gosu::Window
 
         @player = Player.new(self)
         @player.warp(WIDTH / 2, 0)
-        @bullets = [] 
+        @gun = Gun.new(self)
         @last_update_time = Gosu.milliseconds
-    end
-
-    def shoot
-        if self.button_down?(Gosu::KbP)
-            bullet = Bullet.new(self, @player.x, @player.y, @player.look_direction)
-            @bullets << bullet
-        end
     end
 
     def delta_time
@@ -145,13 +152,12 @@ class Main < Gosu::Window
 
     def update
         @player.update
-        shoot()
-        @bullets.each(&:update) 
+        @gun.update
     end
 
     def draw
         @player.draw
-        @bullets.each {|bullet| bullet.draw}
+        @gun.draw
     end
 end
 
