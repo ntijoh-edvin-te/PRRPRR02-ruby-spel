@@ -100,31 +100,38 @@ class Gun
             @bullet = Gosu::Image.new("media/img/char.png")
             @x, @y = x,y
             @direction = direction
-            @x_velocity = 2 * direction
             @scale = 0.1
         end
 
+        def update
+            @x += @direction
+        end
+
+        def draw
+            @bullets.draw(@x, @y, 0, @scale, @scale)
+        end
     end
 
     def initialize(window)
         @window = window
         @bullets = []
     end
+    
+    def update()
+        delta_time = @window.delta_time()
 
-    def shoot()
+        p @window
+
         if @window.button_down?(Gosu::KbP)
             bullet = Bullet.new(@window.player.x, @window.player.y, @window.player.look_direction)
             @bullets << bullet
         end
-    end
-    
-    def update()
-        shoot()
-        @bullets.each {|bullet| bullet}
+        
+        @bullets.each {|bullet| bullet.update}
     end
 
     def draw
-        @bullet.draw(@x, @y, 0, @scale, @scale)
+        @bullets.each {|bullet| bullet.draw}
     end
 end
 
