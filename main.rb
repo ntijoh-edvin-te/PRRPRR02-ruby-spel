@@ -102,7 +102,7 @@ class Gun
         @bullets = []
         
         @rate = 0
-        @fire_rate = 15 # 60/s
+        @fire_rate = 5 # 60/s
     end
 
     def update()
@@ -126,8 +126,8 @@ class Gun
         def initialize(x,y,direction)
             @bullet = Gosu::Image.new("media/img/char.png")
             @x, @y = x,y
-            @scale = 0.1
-            @BULLET_MULTIPLIER = 1000*direction
+            @scale = 0.05
+            @BULLET_MULTIPLIER = 10000*direction
         end
 
         def update(delta_time)
