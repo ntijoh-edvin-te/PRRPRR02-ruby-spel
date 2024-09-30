@@ -3,11 +3,12 @@ require "gosu"
 class Player
     attr_accessor :x, :y, :sprite, :scale, :jump_vel
 
-    def initialize
+    def initialize(window)
         @sprite = Gosu::Image.new("media/img/char.png")
         @x = @y = 0.0
         @scale = 0.3
-        
+
+        @window = window
         
         @MOVEMENT_MULTIPLIER = 400
         @JUMP_VEL_MAX = 100
@@ -25,8 +26,8 @@ class Player
         @x, @y = x, y
     end
 
-    def isSprinting?(window)
-        if window.button_down?(Gosu::KbLeftShift)
+    def sprinting?()
+        if @window.button_down?(Gosu::KbLeftShift)
             return 1.5
         else
             return 1
@@ -46,43 +47,44 @@ class Player
         return delta_y
     end
 
-    def handle_movement(window, delta_time)
-        effective_speed = @MOVEMENT_MULTIPLIER * isSprinting?(window) * delta_time
+    def handle_movement(delta_time)
+        effective_speed = @MOVEMENT_MULTIPLIER * sprinting?() * delta_time
 
-        if window.button_down?(Gosu::KbA)
+        if @window.button_down?(Gosu::KbA)
             @x = [(@x - effective_speed), 0].max
         end
 
-        if window.button_down?(Gosu::KbD)
-            @x = [(@x + effective_speed), (window.width - @sprite.width * @scale)].min
+        if @window.button_down?(Gosu::KbD)
+            @x = [(@x + effective_speed), (@window.width - @sprite.width * @scale)].min
         end
     end
 
-    def handle_jump(window, delta_time)
-        if window.button_down?(Gosu::KbSpace) && !@isMidAir
+    def handle_jump(delta_time)
+        if @window.button_down?(Gosu::KbSpace) && !@isMidAir
             @isChargingJump = true
             jumpCharge(delta_time)
-        elsif !window.button_down?(Gosu::KbSpace) && @isChargingJump
+        elsif !@window.button_down?(Gosu::KbSpace) && @isChargingJump
             @isChargingJump = false
             @isMidAir = true
         end
     end
 
-    def apply_gravity(window, delta_time)
+    def apply_gravity(delta_time)
         if @isMidAir
-            @y = [(@y - gravity(delta_time)), (window.height - @sprite.height * @scale)].min
+            @y = [(@y - gravity(delta_time)), (@window.height - @sprite.height * @scale)].min
         end
 
-        if (@y + @sprite.height * @scale) == window.height && !@isChargingJump
+        if (@y + @sprite.height * @scale) == @window.height && !@isChargingJump
             @jump_vel = 0
             @isMidAir = false
         end
     end
 
-    def update(window, delta_time)
-        handle_movement(window, delta_time)
-        handle_jump(window, delta_time)
-        apply_gravity(window, delta_time)
+    def update()
+        delta_time = @window.delta_time()
+        handle_movement(delta_time)
+        handle_jump(delta_time)
+        apply_gravity(delta_time)
     end
 
     def draw
@@ -99,18 +101,20 @@ class Main < Gosu::Window
         self.resizable = true
         self.fullscreen = true
 
-        @player = Player.new
+        @player = Player.new(self)
         @player.warp(WIDTH / 2, 0)
         @last_update_time = Gosu.milliseconds
     end
 
-    def update
+    def delta_time()
         update_time = Gosu.milliseconds
         delta_time = (update_time - @last_update_time) / 1000.0
         @last_update_time = update_time
+        return delta_time
+    end
 
-        
-        @player.update(self, delta_time)
+    def update
+        @player.update()
     end
 
     def draw
