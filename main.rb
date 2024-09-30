@@ -1,7 +1,7 @@
 require "gosu"
 
 class Player
-    attr_accessor :x, :y, :sprite, :scale, :jump_vel
+    attr_accessor :x, :y, :look_direction
 
     def initialize(window)
         @sprite = Gosu::Image.new("media/img/char.png")
@@ -16,6 +16,7 @@ class Player
         @JUMP_MULTIPLIER = 20
         @CHARGE_MULTIPLIER = 100
         @G = 9.82
+        @look_direction = 1
 
         @isChargingJump = false
         @isMidAir = false
@@ -52,10 +53,12 @@ class Player
 
         if @window.button_down?(Gosu::KbA)
             @x = [(@x - effective_speed), 0].max
+            @look_direction = -1
         end
 
         if @window.button_down?(Gosu::KbD)
             @x = [(@x + effective_speed), (@window.width - @sprite.width * @scale)].min
+            @look_direction = 1
         end
     end
 
@@ -92,6 +95,25 @@ class Player
     end
 end
 
+
+class Bullet
+    def initialize(window, x, y, direction)
+        @bullet = Gosu::Image.new("media/img/bullet.png")
+        @x, @y = x, y
+        @x_velocity = 2 * direction
+        @scale = 1.3
+        @window = window
+    end
+    
+    def update
+        @x += @x_velocity
+    end
+
+    def draw
+        @bullet.draw(@x, @y, 0, @scale)
+    end
+end
+
 class Main < Gosu::Window
     WIDTH, HEIGHT = 1920, 1080 
 
@@ -103,10 +125,18 @@ class Main < Gosu::Window
 
         @player = Player.new(self)
         @player.warp(WIDTH / 2, 0)
+        @bullets = [Bullet.new] 
         @last_update_time = Gosu.milliseconds
     end
 
-    def delta_time()
+    def shoot
+        if self.button_down?(Gosu::KbP)
+            bullet = Bullet.new(self, @player.x, @player.y, @player.look_direction)
+            @bullets << bullet
+        end
+    end
+
+    def delta_time
         update_time = Gosu.milliseconds
         delta_time = (update_time - @last_update_time) / 1000.0
         @last_update_time = update_time
@@ -114,11 +144,14 @@ class Main < Gosu::Window
     end
 
     def update
-        @player.update()
+        @player.update
+        shoot()
+        @bullets.each(&:update) 
     end
 
     def draw
         @player.draw
+        @bullets.each {|bullet| bullets.draw}
     end
 end
 
