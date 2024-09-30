@@ -98,10 +98,10 @@ end
 
 class Bullet
     def initialize(window, x, y, direction)
-        @bullet = Gosu::Image.new("media/img/bullet.png")
+        @bullet = Gosu::Image.new("media/img/char.png")
         @x, @y = x, y
         @x_velocity = 2 * direction
-        @scale = 1.3
+        @scale = 0.1
         @window = window
     end
     
@@ -125,7 +125,7 @@ class Main < Gosu::Window
 
         @player = Player.new(self)
         @player.warp(WIDTH / 2, 0)
-        @bullets = [Bullet.new] 
+        @bullets = [] 
         @last_update_time = Gosu.milliseconds
     end
 
@@ -151,7 +151,7 @@ class Main < Gosu::Window
 
     def draw
         @player.draw
-        @bullets.each {|bullet| bullets.draw}
+        @bullets.each {|bullet| bullet.draw}
     end
 end
 
