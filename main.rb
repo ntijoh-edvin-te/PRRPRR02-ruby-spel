@@ -83,7 +83,7 @@ class Player
     end
 
     def update()
-        delta_time = @window.delta_time()
+        delta_time = @window.delta_time
         handle_movement(delta_time)
         handle_jump(delta_time)
         apply_gravity(delta_time)
@@ -96,23 +96,6 @@ end
 
 
 class Gun
-    class Bullet
-        def initialize(x,y,direction, delta_time)
-            @bullet = Gosu::Image.new("media/img/char.png")
-            @x, @y = x,y
-            @direction = direction*100
-            @scale = 0.1
-        end
-
-        def update
-            @x += @direction
-        end
-
-        def draw
-            @bullet.draw(@x, @y, 0, @scale, @scale)
-        end
-    end
-
     def initialize(window, player)
         @window = window
         @player = player
@@ -123,11 +106,9 @@ class Gun
     end
 
     def update()
-        delta_time = @window.delta_time()
-
         if @window.button_down?(Gosu::KbP)
             if @rate == @fire_rate
-                bullet = Bullet.new(@player.x, @player.y, @player.look_direction, delta_time)
+                bullet = Bullet.new(@player.x, @player.y, @player.look_direction)
                 @bullets << bullet
                 @rate = 0
             else
@@ -135,17 +116,34 @@ class Gun
             end
         end
         
-        @bullets.each {|bullet| bullet.update}
+        @bullets.each {|bullet| bullet.update(@window.delta_time)}
     end
 
     def draw
         @bullets.each {|bullet| bullet.draw}
+    end
+    class Bullet
+        def initialize(x,y,direction)
+            @bullet = Gosu::Image.new("media/img/char.png")
+            @x, @y = x,y
+            @scale = 0.1
+            @BULLET_MULTIPLIER = 1000*direction
+        end
+
+        def update(delta_time)
+            @x += (delta_time*@BULLET_MULTIPLIER)
+        end
+
+        def draw
+            @bullet.draw(@x, @y, 0, @scale, @scale)
+        end
     end
 end
 
 class Main < Gosu::Window
     WIDTH, HEIGHT = 1920, 1080 
 
+    attr_accessor :delta_time
     def initialize
         super(WIDTH, HEIGHT)
         self.caption = "Main"
@@ -156,16 +154,14 @@ class Main < Gosu::Window
         @player.warp(WIDTH / 2, 0)
         @gun = Gun.new(self, @player)
         @last_update_time = Gosu.milliseconds
-    end
-
-    def delta_time
-        update_time = Gosu.milliseconds
-        delta_time = (update_time - @last_update_time) / 1000.0
-        @last_update_time = update_time
-        return delta_time
+        @delta_time = 0
     end
 
     def update
+        update_time = Gosu.milliseconds
+        @delta_time = (update_time - @last_update_time) / 1000.0
+        @last_update_time = update_time
+
         @player.update
         @gun.update
     end
