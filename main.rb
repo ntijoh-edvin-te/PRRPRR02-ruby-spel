@@ -20,7 +20,7 @@ class Server
   end
 end
 
-server_thread = Thread.new do
+Thread.new do
   Server.new(2000)
 end
 
