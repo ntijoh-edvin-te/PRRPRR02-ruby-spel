@@ -11,10 +11,13 @@ class Main < Gosu::Window
             @x, @y = x,y
         end
     end
+
     def initialize()
         super(1920/2,1080/2)
 
-        @udp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_DGRAM) 
+        @udp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_DGRAM)
+        @udp_socket.bind(Socket.sockaddr_in(0,""))
+
         @tcp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
 
         @server_connected = false
@@ -27,7 +30,11 @@ class Main < Gosu::Window
             if @tcp_socket.connect(Socket.sockaddr_in(2001, "127.0.0.1")) == 0
                 @server_connected = true
                 puts "Established connection with server."
-
+    
+                udp_port = Socket.unpack_sockaddr_in(@udp_socket.getsockname)[0].to_s
+    
+                @tcp_socket.write(udp_port)
+    
                 @players << Player.new
             end
         rescue EINPROGRESS, ENETDOWN => e
@@ -35,12 +42,13 @@ class Main < Gosu::Window
             p "Failed to establish a connection with server. Trying again."
             sleep(0.1)
             retry
-        end 
+        end
     end
+    
 
     def get_server_state
         begin
-            payload, addrinfo = @udp_socket.recvfrom_nonblock(1476)
+            payload, addrinfo = @udp_socket.recvfrom(1476)
             return payload, addrinfo
         rescue IO::WaitReadable => e
             p e
@@ -70,7 +78,6 @@ class Main < Gosu::Window
     def update()
         establish_connection() if !@server_connected 
         send_player_state(get_player_state) if @server_connected
-        get_server_state
     end
 
     def draw()
@@ -122,18 +129,27 @@ class Server
     def start()
         Thread.new do # TCP packet handling
             loop do
-                client = @tcp_socket.accept()[1].ip_address
-                @clients << client 
-                @players << Player.new(client)
+              client_socket, client_addrinfo = @tcp_socket.accept
+              port, client_ip = Socket.unpack_sockaddr_in(client_addrinfo)
+          
+              udp_port = client_socket.recv(1024).strip
+
+              @clients << [udp_port, client_ip]
+              @players << Player.new(udp_port)
+
+              puts "New client connected: #{client_ip}:#{port}, UDP port: #{udp_port}"
             end
-        end
+          end
 
         Thread.new do # UDP packet handling
+            sleep(1)
             loop do
                 payload, addrinfo = @udp_socket.recvfrom(1476)
                 payload = eval(payload)
-                ip_address = addrinfo.ip_address
                 
+                port, ip_address = Socket.unpack_sockaddr_in(addrinfo)
+                
+
                 delta_x = 0
                 delta_y = 0
 
@@ -150,16 +166,18 @@ class Server
                 game_state = []
 
                 @players.each do |player|
-                    if player.id == ip_address
+
+                    if player.id == port.to_s
                         player.setter(player.x+delta_x,player.y+delta_y)
-                        game_state << [ip_address, player.x, player.y]
+                        game_state << [port, player.x, player.y]
                     else
-                        game_state << [ip_address, player.x, player.y]
+                        game_state << [port, player.x, player.y]
                     end
+                    puts player.x, player.y
                 end
 
                 @clients.each do |client|
-                    @udp_socket.send(game_state.to_s, 0,Socket.sockaddr_in(2000,client))
+                    @udp_socket.send(game_state.to_s, 0,Socket.sockaddr_in(client[0], client[1]))
                 end 
             end
         end
