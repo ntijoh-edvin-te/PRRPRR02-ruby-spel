@@ -6,7 +6,6 @@ class Main < Gosu::Window
         super(1920/2,1080/2)
         @udp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_DGRAM) 
         @tcp_socket = Socket.new(Socket)
-        @x, @y = 0,0
         @is_in_lobby = false
     end
 
