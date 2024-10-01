@@ -2,27 +2,55 @@ require "gosu"
 require 'socket'
 
 class Server
-  def initialize(port)
-    @server = TCPServer.new('127.0.0.1', port)
-    @clients = []
-    puts "Server started on port #{port}"
-    start
-  end
+    def initialize(port)
+        @server = TCPServer.new('127.0.0.1', port)
+        @clients = []
+        puts "Server started on port #{port}"
+        start
+    end
 
-  def start
-    loop do
-        if IO.select([@server], nil, nil, 0)
-            client = @server.accept_nonblock
-            @clients << client
-            puts "Client connected: #{client.peeraddr[2]}"
+    def start
+        loop do
+            if IO.select([@server], nil, nil, 0)
+                client = @server.accept_nonblock
+                @clients << client
+                puts "Client connected: #{client.peeraddr[2]}"
+            end
         end
     end
-  end
 end
 
-Thread.new do
-  Server.new(2000)
+class Menu < Gosu::Window
+    WIDTH, HEIGHT = 1920, 1080 
+
+    def initialize
+        super(WIDTH, HEIGHT)
+        self.caption = "Main"
+        self.resizable = true
+        self.fullscreen = true
+        
+    end
+
+    def draw()
+        
+    end
 end
+
+Menu.new.show
+
+
+# Host Server
+#Thread.new do 
+#  Server.new(2000)
+#end
+
+# Scan For Server
+
+
+
+
+
+
 
 class Client
     class Player
@@ -165,7 +193,7 @@ class Client
         end
     end
 
-    class Main < Gosu::Window
+    class Main2 < Gosu::Window
         WIDTH, HEIGHT = 1920, 1080 
 
         attr_accessor :delta_time
