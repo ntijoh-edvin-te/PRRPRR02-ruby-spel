@@ -20,29 +20,11 @@ class Server
     end
 end
 
-class Menu < Gosu::Window
-    WIDTH, HEIGHT = 1920, 1080 
-
-    def initialize
-        super(WIDTH, HEIGHT)
-        self.caption = "Main"
-        self.resizable = true
-        self.fullscreen = true
-        
-    end
-
-    def draw()
-        
-    end
-end
-
-Menu.new.show
-
 
 # Host Server
-#Thread.new do 
-#  Server.new(2000)
-#end
+Thread.new do 
+    Server.new(2000)
+end
 
 # Scan For Server
 
@@ -193,7 +175,7 @@ class Client
         end
     end
 
-    class Main2 < Gosu::Window
+    class Main < Gosu::Window
         WIDTH, HEIGHT = 1920, 1080 
 
         attr_accessor :delta_time
