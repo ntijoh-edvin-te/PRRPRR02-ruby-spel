@@ -3,12 +3,23 @@ require 'gosu'
 
 class Main < Gosu::Window
     class Player
-        def initialize
+        def initialize(id)
             @x,@y = 0,0
+            @id = id
+            @sprite = Gosu::Image.new("media/img/char.png")
+            @scale = 0.2
         end
         
         def setter(x,y)
             @x, @y = x,y
+        end
+
+        def draw
+            @sprite.draw(@x, @y, 1, @scale, @scale)
+        end
+
+        def id()
+            return @id
         end
     end
 
@@ -23,6 +34,8 @@ class Main < Gosu::Window
         @server_connected = false
 
         @players = []
+
+        @client_id = ""
     end
 
     def establish_connection()
@@ -34,8 +47,9 @@ class Main < Gosu::Window
                 udp_port = Socket.unpack_sockaddr_in(@udp_socket.getsockname)[0].to_s
     
                 @tcp_socket.write(udp_port)
+                @client_id = udp_port
     
-                @players << Player.new
+                @players << Player.new(udp_port)
             end
         rescue EINPROGRESS, ENETDOWN => e
             p e
@@ -49,7 +63,7 @@ class Main < Gosu::Window
     def get_server_state
         begin
             payload, addrinfo = @udp_socket.recvfrom(1476)
-            return payload, addrinfo
+            return eval(payload), addrinfo
         rescue IO::WaitReadable => e
             p e
             return "NIL"
@@ -67,7 +81,12 @@ class Main < Gosu::Window
 
     def set_player_state(server_state)
         @players.each do |player|
-            player.setter()
+            server_state[0].each do |state|
+                if player.id == state[0].to_s
+                    player.setter(state[1],state[2])
+                    next
+                end
+            end
         end
     end
 
@@ -78,10 +97,13 @@ class Main < Gosu::Window
     def update()
         establish_connection() if !@server_connected 
         send_player_state(get_player_state) if @server_connected
+        set_player_state(get_server_state)
     end
 
     def draw()
-        
+        @players.each do |player|
+            player.draw
+        end
     end
 end
 
@@ -154,13 +176,16 @@ class Server
                 delta_y = 0
 
                 if payload[0]
-                    delta_y += 1
-                elsif payload[1]
-                    delta_y -= 1
-                elsif payload[2]
-                    delta_x += 1
-                elsif payload[3]
-                    delta_x -= 1
+                    delta_y -= 2
+                end
+                if payload[1]
+                    delta_y += 2
+                end
+                if payload[2]
+                    delta_x -= 2
+                end
+                if payload[3]
+                    delta_x += 2
                 end
 
                 game_state = []
