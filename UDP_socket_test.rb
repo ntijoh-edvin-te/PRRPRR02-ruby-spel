@@ -62,13 +62,15 @@ class Main < Gosu::Window
 
     def get_server_state
         begin
-            payload, addrinfo = @udp_socket.recvfrom(1476)
-            return eval(payload), addrinfo
-        rescue IO::WaitReadable => e
-            p e
-            return "NIL"
+          payload, addrinfo = @udp_socket.recvfrom(1476)
+          return eval(payload), addrinfo
+        rescue IO::WaitReadable, Errno::ECONNRESET => e
+          puts "Connection error: #{e.message}. Attempting to reconnect..."
+          @server_connected = false
+          sleep(1)
+          return nil
         end
-    end
+      end
 
     def get_player_state
         state = []
@@ -94,11 +96,15 @@ class Main < Gosu::Window
         @udp_socket.send(player_state,0,Socket.sockaddr_in(2000,"127.0.0.1"))
     end
 
-    def update()
-        establish_connection() if !@server_connected 
-        send_player_state(get_player_state) if @server_connected
-        set_player_state(get_server_state)
-    end
+    def update
+        if !@server_connected
+          establish_connection()
+        else
+          send_player_state(get_player_state)
+          server_state = get_server_state
+          set_player_state(server_state) if server_state
+        end
+      end
 
     def draw()
         @players.each do |player|
