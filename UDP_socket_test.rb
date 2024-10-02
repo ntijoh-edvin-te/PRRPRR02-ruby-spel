@@ -4,10 +4,10 @@ require 'gosu'
 class Main < Gosu::Window
     class Player
         def initialize(id)
-            @x,@y = 0,0
+            @x,@y = 500,500
             @id = id
             @sprite = Gosu::Image.new("media/img/char.png")
-            @scale = 0.2
+            @scale = 0.5
         end
         
         def setter(x,y)
@@ -23,13 +23,16 @@ class Main < Gosu::Window
         end
     end
 
+    WIDTH, HEIGHT = 1920,1080
     def initialize()
-        super(1920/2,1080/2)
+        super(WIDTH, HEIGHT)
+        self.fullscreen = true
 
         @udp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_DGRAM)
         @udp_socket.bind(Socket.sockaddr_in(0,""))
 
         @tcp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
+        @tcp_socket.bind(Socket.sockaddr_in(0,""))
 
         @server_connected = false
 
@@ -50,6 +53,8 @@ class Main < Gosu::Window
                 @client_id = udp_port
     
                 @players << Player.new(udp_port)
+
+
             end
         rescue EINPROGRESS, ENETDOWN => e
             p e
@@ -176,16 +181,16 @@ class Server
                 delta_y = 0
 
                 if payload[0]
-                    delta_y -= 2
+                    delta_y -= 5
                 end
                 if payload[1]
-                    delta_y += 2
+                    delta_y += 5
                 end
                 if payload[2]
-                    delta_x -= 2
+                    delta_x -= 5
                 end
                 if payload[3]
-                    delta_x += 2
+                    delta_x += 5
                 end
 
                 game_state = []
