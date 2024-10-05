@@ -7,7 +7,7 @@ class Client < Gosu::Window
         def initialize(id)
             @x,@y = 500,500
             @id = id
-            @sprite = Gosu::Image.new("media/img/char.png")
+            @img = Gosu::Image.new("media/img/char.png")
             @scale = 0.5
         end
         
@@ -16,7 +16,7 @@ class Client < Gosu::Window
         end
 
         def draw
-            @sprite.draw(@x, @y, 1, @scale, @scale)
+            @img.draw(@x, @y, 1, @scale, @scale)
         end
 
         def id()
@@ -25,35 +25,37 @@ class Client < Gosu::Window
     end
 
     WIDTH, HEIGHT = 1920,1080
-    def initialize()
+    def initialize
         super(WIDTH, HEIGHT)
         self.fullscreen = true
 
         @udp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_DGRAM)
         @tcp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
 
-        @server_connected = false
+        @is_conn = false
 
+        @player_self
         @players = []
 
         @id = ""
     end
 
-    def generate_id
+    def gen_id
         return SecureRandom.uuid()
     end
 
-    def establish_connection()
+    def est_conn
         begin
             if @tcp_socket.connect(Socket.sockaddr_in(2001, "127.0.0.1")) == 0
-                @server_connected = true
+                @is_conn = true
                 
-                @id = generate_id 
+                @id = gen_id 
                 @tcp_socket.write(@id)
 
                 puts "Established connection with server as #{@id}"
     
-                @players << Player.new(@id)
+                @player_self = Player.new(@id)
+                @players << @player_self
             end
         rescue EINPROGRESS, ENETDOWN => e
             p e
@@ -63,8 +65,7 @@ class Client < Gosu::Window
         end
     end
     
-
-    def get_server_state
+    def get_s_state
         begin
             payload, _ = @udp_socket.recvfrom(1476)
             return eval(payload)
@@ -74,7 +75,7 @@ class Client < Gosu::Window
         end
     end
 
-    def get_player_state
+    def get_p_state
         state = []
         state << @id
         state << self.button_down?(Gosu::KbW)
@@ -84,33 +85,33 @@ class Client < Gosu::Window
         return state.to_s
     end
 
-    def set_player_state(server_state)
-        if server_state != "NIL"
-            server_state.each do |state|
-                player = @players.find { |p| p.id == state[0].to_s }
+    def set_p_state(s_state)
+        if s_state != "NIL"
+            s_state.each do |s|
+                p = @players.find { |p| p.id == s[0].to_s }
                 
-                if player
-                    player.setter(state[1], state[2])
+                if p
+                    p.setter(s[1], s[2])
                 else
-                    @players << Player.new(state[0])
+                    @players << Player.new(s[0])
                 end
             end
         end
     end    
 
-    def send_player_state(player_state)
-        @udp_socket.send(player_state,0,Socket.sockaddr_in(2000,"127.0.0.1"))
+    def send_p_state(p_state)
+        @udp_socket.send(p_state,0,Socket.sockaddr_in(2000,"127.0.0.1"))
     end
 
     def update()
-        establish_connection() if !@server_connected 
-        send_player_state(get_player_state) if @server_connected
-        set_player_state(get_server_state)
+        est_conn() if !@is_conn 
+        send_p_state(get_p_state) if @is_conn
+        set_p_state(get_s_state)
     end
 
     def draw()
-        @players.each do |player|
-            player.draw
+        @players.each do |p|
+            p.draw
         end
     end
 end
@@ -145,7 +146,7 @@ class Server
         @udp_port = 2000
 
         @tcp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
-        @tcp_socket.bind(Socket.sockaddr_in(@tcp_port,""))
+        @tcp_socket.bind(Socket.sockaddr_in(@tcp_port,"0.0.0.0"))
         @tcp_socket.listen(10)
 
         @udp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_DGRAM)
@@ -212,7 +213,6 @@ class Server
                 end
 
                 @clients.each do |client| # [id, client_ip, udp_port]
-                    puts ("\nClient: #{client} \n")
                     @udp_socket.send(game_state.to_s, 0, Socket.sockaddr_in(client[2], client[1]))
                 end
             end
