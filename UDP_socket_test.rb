@@ -1,7 +1,8 @@
 require 'socket'
 require 'gosu'
+require 'securerandom'
 
-class Main < Gosu::Window
+class Client < Gosu::Window
     class Player
         def initialize(id)
             @x,@y = 500,500
@@ -29,32 +30,30 @@ class Main < Gosu::Window
         self.fullscreen = true
 
         @udp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_DGRAM)
-        @udp_socket.bind(Socket.sockaddr_in(0,""))
-
         @tcp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
-        @tcp_socket.bind(Socket.sockaddr_in(0,""))
 
         @server_connected = false
 
         @players = []
 
-        @client_id = ""
+        @id = ""
+    end
+
+    def generate_id
+        return SecureRandom.uuid()
     end
 
     def establish_connection()
         begin
             if @tcp_socket.connect(Socket.sockaddr_in(2001, "127.0.0.1")) == 0
                 @server_connected = true
-                puts "Established connection with server."
-    
-                udp_port = Socket.unpack_sockaddr_in(@udp_socket.getsockname)[0].to_s
-    
-                @tcp_socket.write(udp_port)
-                @client_id = udp_port
-    
-                @players << Player.new(udp_port)
+                
+                @id = generate_id 
+                @tcp_socket.write(@id)
 
-
+                puts "Established connection with server as #{@id}"
+    
+                @players << Player.new(@id)
             end
         rescue EINPROGRESS, ENETDOWN => e
             p e
@@ -67,8 +66,8 @@ class Main < Gosu::Window
 
     def get_server_state
         begin
-            payload, addrinfo = @udp_socket.recvfrom(1476)
-            return eval(payload), addrinfo
+            payload, _ = @udp_socket.recvfrom(1476)
+            return eval(payload)
         rescue IO::WaitReadable => e
             p e
             return "NIL"
@@ -77,6 +76,7 @@ class Main < Gosu::Window
 
     def get_player_state
         state = []
+        state << @id
         state << self.button_down?(Gosu::KbW)
         state << self.button_down?(Gosu::KbS)
         state << self.button_down?(Gosu::KbA)
@@ -85,15 +85,18 @@ class Main < Gosu::Window
     end
 
     def set_player_state(server_state)
-        @players.each do |player|
-            server_state[0].each do |state|
-                if player.id == state[0].to_s
-                    player.setter(state[1],state[2])
-                    next
+        if server_state != "NIL"
+            server_state.each do |state|
+                player = @players.find { |p| p.id == state[0].to_s }
+                
+                if player
+                    player.setter(state[1], state[2])
+                else
+                    @players << Player.new(state[0])
                 end
             end
         end
-    end
+    end    
 
     def send_player_state(player_state)
         @udp_socket.send(player_state,0,Socket.sockaddr_in(2000,"127.0.0.1"))
@@ -119,12 +122,13 @@ class Server
             @x,@y = 0,0
         end
         
+        def setter(x,y)
+            @x += x
+            @y += y
+        end
+        
         def id()
             return @id
-        end
-
-        def setter(x,y)
-            @x, @y = x,y
         end
 
         def x()
@@ -142,7 +146,7 @@ class Server
 
         @tcp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
         @tcp_socket.bind(Socket.sockaddr_in(@tcp_port,""))
-        @tcp_socket.listen(5)
+        @tcp_socket.listen(10)
 
         @udp_socket = Socket.new(Socket::AF_INET, Socket::SOCK_DGRAM)
         @udp_socket.bind(Socket.sockaddr_in(@udp_port,""))
@@ -157,14 +161,14 @@ class Server
         Thread.new do # TCP packet handling
             loop do
               client_socket, client_addrinfo = @tcp_socket.accept
-              port, client_ip = Socket.unpack_sockaddr_in(client_addrinfo)
+              tcp_port, client_ip = Socket.unpack_sockaddr_in(client_addrinfo)
           
-              udp_port = client_socket.recv(1024).strip
+              id = client_socket.recv(1024)
 
-              @clients << [udp_port, client_ip]
-              @players << Player.new(udp_port)
+              @clients << [id, client_ip]
+              @players << Player.new(id)
 
-              puts "New client connected: #{client_ip}:#{port}, UDP port: #{udp_port}"
+              puts "New client #{client_ip}:#{tcp_port} connected as: #{id}"
             end
           end
 
@@ -173,47 +177,49 @@ class Server
             loop do
                 payload, addrinfo = @udp_socket.recvfrom(1476)
                 payload = eval(payload)
-                
-                port, ip_address = Socket.unpack_sockaddr_in(addrinfo)
-                
+
+                @clients.each do |client| 
+                    if !client[2] && payload[0] == client[0]
+                        client << Socket.unpack_sockaddr_in(addrinfo)[0]
+                    end
+                end
 
                 delta_x = 0
                 delta_y = 0
 
-                if payload[0]
+                if payload[1]
                     delta_y -= 5
                 end
-                if payload[1]
+                if payload[2]
                     delta_y += 5
                 end
-                if payload[2]
+                if payload[3]
                     delta_x -= 5
                 end
-                if payload[3]
+                if payload[4]
                     delta_x += 5
                 end
 
                 game_state = []
 
                 @players.each do |player|
-
-                    if player.id == port.to_s
-                        player.setter(player.x+delta_x,player.y+delta_y)
-                        game_state << [port, player.x, player.y]
+                    if player.id == payload[0]
+                        player.setter(delta_x,delta_y)
+                        game_state << [player.id, player.x, player.y]
                     else
-                        game_state << [port, player.x, player.y]
+                        game_state << [player.id, player.x, player.y]
                     end
-                    puts player.x, player.y
                 end
 
-                @clients.each do |client|
-                    @udp_socket.send(game_state.to_s, 0,Socket.sockaddr_in(client[0], client[1]))
-                end 
+                @clients.each do |client| # [id, client_ip, udp_port]
+                    puts ("\nClient: #{client} \n")
+                    @udp_socket.send(game_state.to_s, 0, Socket.sockaddr_in(client[2], client[1]))
+                end
             end
         end
     end
 end
 
 Server.new
-Main.new.show
+Client.new.show
 
