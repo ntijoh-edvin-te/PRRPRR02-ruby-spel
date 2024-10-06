@@ -14,65 +14,58 @@ end
 
 class Server
     def initialize()
-        # Session variables
-        @server_session_id = SecureRandom.uuid
-        puts "(Server) Started with session id: #{@server_session_id}"
-
-        @clients = []
-        @players = []
-
-        # Constants
+        @SESSION_ID = SecureRandom.uuid
+        @TCP_ADDRINFO = Addrinfo.tcp("127.0.0.1",5000)
+        @UDP_ADDRINFO = Addrinfo.udp("127.0.0.1",0)
+        
         @TIMEOUT_CLIENT = 5
         
-        # Socket init
-        tcp_addrinfo = Addrinfo.tcp("127.0.0.1",5000)
-        udp_addrinfo = Addrinfo.udp("127.0.0.1",0)
-        
-        # Handling of threads
-        @mutex_clients = Thread::Mutex.new()
+        @clients = []
 
-        tcp_thread = Thread.new {handle_tcp_endpoint(tcp_addrinfo)}
-        udp_thread = Thread.new {handle_udp_endpoint(udp_addrinfo)}
+        puts "(Server) Started with session id: #{@SESSION_ID}"
+        
+        Thread.new {tcp_handler(@TCP_ADDRINFO)}
+        Thread.new {udp_handler(@UDP_ADDRINFO)}
     end
 
-    def handle_tcp_endpoint(addrinfo) # Handling of TCP streams
-        tcp_socket = Socket.new(AF_INET, SOCK_STREAM)
-        tcp_socket.bind(addrinfo) 
-        tcp_socket.listen(10)
+    def tcp_handler(addrinfo)
+        socket = Socket.new(AF_INET, SOCK_STREAM)
+        socket.bind(addrinfo) 
+        socket.listen(10)
 
         loop do
-            begin
-                client_socket, _ = tcp_socket.accept
-                Thread.new(client_socket) do |client|
-                    @mutex_clients.synchronize{
-                        @clients << client
-                    }
-                    loop do
-                        begin
-                            ready = IO.select([client],nil,nil,@TIMEOUT_CLIENT)
-                            raise unless ready
-                            client.recv(10)
-                        rescue
-                            puts "Client #{client} is unresponsive. Trying again."
-                            ready = IO.select([client],nil,nil,@TIMEOUT_CLIENT) 
-                            unless ready
-                                @mutex_clients.synchronize{@clients.delete(client)}
-                                puts "(Server) Client on socket #{client} has disconnected."
-                                client.close
-                                Thread.current.kill                                                              
-                            end
+            ready = IO.select([socket, *@clients], nil, nil, @TIMEOUT_CLIENT)
+
+            if ready
+                  if ready[0].include?(socket)
+                    client_socket, _ = socket.accept
+                    puts "(Server) New client connected: #{client_socket}"
+                    @clients << client_socket
+                end
+      
+                  ready[0].each do |client|
+                    next if client == socket
+        
+                    begin
+                        data = client.recv(10)
+                        if data.empty?
+                            puts "(Server) Client #{client} disconnected."
+                            @clients.delete(client)
+                            client.close
                         end
+                    rescue => e
+                        puts "(Server) Error handling client #{client}: #{e}"
+                        @clients.delete(client)
+                        client.close
                     end
                 end
-            rescue => e
-                puts "(Server) Errored when attempting TCP 3-way handshake: #{e}"
             end
         end
-    end
+    end 
 
-    def handle_udp_endpoint(addrinfo) # Handling of UDP datagrams
-        udp_socket = Socket.new(AF_INET, SOCK_DGRAM)
-        udp_socket.bind(addrinfo)
+    def udp_handler(addrinfo)
+        socket = Socket.new(AF_INET, SOCK_DGRAM)
+        socket.bind(addrinfo)
         
         loop do
         end
@@ -81,11 +74,11 @@ end
 
 class Client 
     def initialize()
-        @id = SecureRandom.uuid
-        Thread.new{server_connection}
+        @SESSION_ID = SecureRandom.uuid
+        Thread.new{tcp_handler}
     end
 
-    def server_connection
+    def tcp_handler
         tcp_socket = Socket.new(AF_INET, SOCK_STREAM)
         begin
             tcp_socket.connect(Addrinfo.tcp("127.0.0.1",5000))
@@ -94,7 +87,7 @@ class Client
             retry
         end
 
-        loop do # Loop to uphold TCP stream
+        loop do #
             sleep(1)
             tcp_socket.write(1)
             tcp_socket.flush
@@ -106,4 +99,8 @@ Server.new
 
 Client.new
 Client.new
+Client.new
+Client.new
+Client.new
+
 sleep()
