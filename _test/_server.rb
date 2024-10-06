@@ -50,19 +50,16 @@ class Server
                     }
                     loop do
                         begin
-                            client.recv(1)
-                        rescue => 
+                            puts client.recv_nonblock(1)
+                        rescue IO::WaitReadable
                             ready = IO.select([client],nil,nil,@TIMEOUT_CLIENT)
-                        else
-                            
-                        end
-
-                        if ready
-                            puts client.recv(10)
-                        else
-                            @clients.delete(client)
-                            puts "(Server) #{client} has disconnected."
-                            Thread.current.kill
+                            if ready
+                                puts client.recv(10)
+                            else
+                                @clients.delete(client)
+                                puts "(Server) #{client} has disconnected."
+                                Thread.current.kill
+                            end
                         end
                     end
                 end
