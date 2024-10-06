@@ -37,7 +37,6 @@ class Server
                 puts "An error occured when attempting a TCP 3-Way Handshake: #{e}"
                 retry
             end
-            tcp_socket.accept
             @mutex.synchronize{
             }
         end
