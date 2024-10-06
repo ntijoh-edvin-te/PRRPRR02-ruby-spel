@@ -32,7 +32,10 @@ class Server
         
         loop do
             begin
-                tcp_socket.accept
+                client_socket, _ = tcp_socket.accept
+                Thread.new{
+                    puts client_socket
+                }
             rescue => e
                 puts "An error occured when attempting a TCP 3-Way Handshake: #{e}"
                 retry
