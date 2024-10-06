@@ -8,15 +8,15 @@ class Server
     def initialize()
         # Session variables
         @server_session_id = SecureRandom.uuid
-        puts "Server starting with session id: #{@server_session_id}"
+        puts "Server session id: #{@server_session_id}"
 
         @clients = []
         @players = []
         
-        # Socket constructors
+        # Socket init
         tcp_addrinfo = Addrinfo.tcp("0.0.0.0",0)
         udp_addrinfo = Addrinfo.udp("0.0.0.0",0)
-
+        
         # Handling of threads
         @mutex = Thread::Mutex.new()
 
@@ -27,18 +27,24 @@ class Server
 
     def handle_tcp_endpoint(addrinfo) # Handling of TCP streams
         tcp_socket = Socket.new(AF_INET, SOCK_STREAM)
-        tcp_socket.bind(sockaddr) 
+        tcp_socket.bind(addrinfo) 
         tcp_socket.listen(10)
 
         loop do
+            begin
+                tcp_socket.accept
+            rescue
+                
+            end
+            tcp_socket.accept
             @mutex.synchronize{
             }
         end
     end
 
-    def handle_udp_endpoint() # Handling of UDP datagrams
+    def handle_udp_endpoint(addrinfo) # Handling of UDP datagrams
         udp_socket = Socket.new(AF_INET, SOCK_DGRAM)
-        udp_socket.bind(@udp_addr)
+        udp_socket.bind(addrinfo)
         
         loop do
             @mutex.synchronize{
