@@ -29,12 +29,13 @@ class Server
         tcp_socket = Socket.new(AF_INET, SOCK_STREAM)
         tcp_socket.bind(addrinfo) 
         tcp_socket.listen(10)
-
+        
         loop do
             begin
                 tcp_socket.accept
-            rescue
-                
+            rescue => e
+                puts "An error occured when attempting a TCP 3-Way Handshake: #{e}"
+                retry
             end
             tcp_socket.accept
             @mutex.synchronize{
