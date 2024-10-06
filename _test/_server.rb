@@ -17,15 +17,13 @@ class Server
         @SESSION_ID = SecureRandom.uuid
         @TCP_ADDRINFO = Addrinfo.tcp("127.0.0.1",5000)
         @UDP_ADDRINFO = Addrinfo.udp("127.0.0.1",0)
-        
         @TIMEOUT_CLIENT = 5
-        
         @clients = []
 
-        puts "(Server) Started with session id: #{@SESSION_ID}"
-        
         Thread.new {tcp_handler(@TCP_ADDRINFO)}
         Thread.new {udp_handler(@UDP_ADDRINFO)}
+        
+        puts "(Server) Started with session id: #{@SESSION_ID}"
     end
 
     def tcp_handler(addrinfo)
@@ -37,13 +35,13 @@ class Server
             ready = IO.select([socket, *@clients], nil, nil, @TIMEOUT_CLIENT)
 
             if ready
-                  if ready[0].include?(socket)
+                if ready[0].include?(socket)
                     client_socket, _ = socket.accept
                     puts "(Server) New client connected: #{client_socket}"
                     @clients << client_socket
                 end
       
-                  ready[0].each do |client|
+                ready[0].each do |client|
                     next if client == socket
         
                     begin
