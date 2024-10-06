@@ -50,15 +50,19 @@ class Server
                     }
                     loop do
                         begin
-                            puts client.recv_nonblock(1)
-                        rescue IO::WaitReadable
                             ready = IO.select([client],nil,nil,@TIMEOUT_CLIENT)
-                            if ready
-                                puts client.recv(10)
-                            else
+                            raise if !ready
+                            puts client.recv(10)
+                        rescue
+                            puts "Client #{client} unresponsive. Trying again."
+                            ready = IO.select([client],nil,nil,@TIMEOUT_CLIENT) 
+                            if !ready
+                                puts @clients
                                 @clients.delete(client)
-                                puts "(Server) #{client} has disconnected."
-                                Thread.current.kill
+                                puts @clients
+                                puts "(Server) Client on socket #{client} has disconnected."
+                                client.close
+                                Thread.current.kill                                                              
                             end
                         end
                     end
@@ -94,7 +98,7 @@ class Client
         end
 
         loop do # Loop to uphold TCP stream
-            sleep(1)
+            sleep(Random.rand(4..40))
             tcp_socket.write(1)
             tcp_socket.flush
         end
