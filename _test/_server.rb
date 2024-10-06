@@ -4,11 +4,19 @@ require 'securerandom'
 
 include Socket::Constants 
 
+class PacketStruct
+    def initialize
+        @@all_structs = []
+    end
+    def struct(type,payload)
+    end
+end
+
 class Server
     def initialize()
         # Session variables
         @server_session_id = SecureRandom.uuid
-        puts "Server started with session id: #{@server_session_id}"
+        puts "(Server) Started with session id: #{@server_session_id}"
 
         @clients = []
         @players = []
@@ -32,18 +40,18 @@ class Server
         
         loop do
             begin
-                client_socket, client_addrinfo = tcp_socket.accept
-                Thread.new(client_socket,client_addrinfo) do |client,addrinfo|
+                client_socket, _ = tcp_socket.accept
+                Thread.new(client_socket) do |client|
                     @mutex_clients.synchronize{
-                        @clients << Socket.unpack_sockaddr_in(addrinfo)
+                        @clients << client
                     }
                     loop do
-                        
+                        stream = client.recv(1024)
+                        puts stream
                     end
                 end
             rescue => e
                 puts "(Server) Errored when attempting TCP 3-way handshake: #{e}"
-                retry
             end
         end
     end
@@ -59,16 +67,23 @@ end
 
 class Client 
     def initialize()
-        @tcp_socket = Socket.new(AF_INET, SOCK_STREAM)
-        test
+        @id = SecureRandom.uuid
+        establish_connection
     end
 
-    def test
+    def establish_connection
+        tcp_socket = Socket.new(AF_INET, SOCK_STREAM)
+        tcp_socket.binmode
         begin
-            @tcp_socket.connect(Addrinfo.tcp("127.0.0.1",5000))
+            tcp_socket.connect(Addrinfo.tcp("127.0.0.1",5000))
         rescue => e
             puts "(Client) Errored when attempting TCP 3-way handshake #{e}"
             retry
+        end
+        loop do # Loop to uphold TCP stream
+            sleep(1)
+            tcp_socket.write(0)
+            tcp_socket.flush
         end
     end
 end
