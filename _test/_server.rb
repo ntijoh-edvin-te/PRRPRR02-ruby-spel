@@ -20,6 +20,9 @@ class Server
 
         @clients = []
         @players = []
+
+        # CONSTANTS
+        @TIMEOUT_CLIENT = 5
         
         # Socket init
         tcp_addrinfo = Addrinfo.tcp("127.0.0.1",5000)
@@ -46,9 +49,20 @@ class Server
                         @clients << client
                     }
                     loop do
-                        stream = client.recv(50)
-                        if stream > 20
+                        begin
+                            client.recv(1)
+                        rescue => 
+                            ready = IO.select([client],nil,nil,@TIMEOUT_CLIENT)
+                        else
                             
+                        end
+
+                        if ready
+                            puts client.recv(10)
+                        else
+                            @clients.delete(client)
+                            puts "(Server) #{client} has disconnected."
+                            Thread.current.kill
                         end
                     end
                 end
@@ -70,10 +84,10 @@ end
 class Client 
     def initialize()
         @id = SecureRandom.uuid
-        establish_connection
+        server_connection
     end
 
-    def establish_connection
+    def server_connection
         tcp_socket = Socket.new(AF_INET, SOCK_STREAM)
         begin
             tcp_socket.connect(Addrinfo.tcp("127.0.0.1",5000))
@@ -81,6 +95,7 @@ class Client
             puts "(Client) Errored when attempting TCP 3-way handshake #{e}"
             retry
         end
+
         loop do # Loop to uphold TCP stream
             sleep(1)
             tcp_socket.write(1)
