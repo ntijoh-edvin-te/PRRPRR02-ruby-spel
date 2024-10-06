@@ -58,7 +58,7 @@ class Server
                             ready = IO.select([client],nil,nil,@TIMEOUT_CLIENT) 
                             if !ready
                                 puts @clients
-                                @clients.delete(client)
+                                @mutex_clients.synchronize{@clients.delete(client)}
                                 puts @clients
                                 puts "(Server) Client on socket #{client} has disconnected."
                                 client.close
