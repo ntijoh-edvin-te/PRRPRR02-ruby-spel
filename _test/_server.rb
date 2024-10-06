@@ -37,7 +37,7 @@ class Server
         tcp_socket = Socket.new(AF_INET, SOCK_STREAM)
         tcp_socket.bind(addrinfo) 
         tcp_socket.listen(10)
-        
+
         loop do
             begin
                 client_socket, _ = tcp_socket.accept
@@ -46,8 +46,10 @@ class Server
                         @clients << client
                     }
                     loop do
-                        stream = client.recv(1024)
-                        puts stream
+                        stream = client.recv(50)
+                        if stream > 20
+                            
+                        end
                     end
                 end
             rescue => e
@@ -73,7 +75,6 @@ class Client
 
     def establish_connection
         tcp_socket = Socket.new(AF_INET, SOCK_STREAM)
-        tcp_socket.binmode
         begin
             tcp_socket.connect(Addrinfo.tcp("127.0.0.1",5000))
         rescue => e
@@ -82,7 +83,7 @@ class Client
         end
         loop do # Loop to uphold TCP stream
             sleep(1)
-            tcp_socket.write(0)
+            tcp_socket.write(1)
             tcp_socket.flush
         end
     end
