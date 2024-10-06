@@ -6,7 +6,7 @@ include Socket::Constants
 
 class PacketStruct
     def initialize
-        @@all_structs = []
+        @all_structs = []
     end
     def struct(type,payload)
     end
@@ -21,7 +21,7 @@ class Server
         @clients = []
         @players = []
 
-        # CONSTANTS
+        # Constants
         @TIMEOUT_CLIENT = 5
         
         # Socket init
@@ -33,7 +33,6 @@ class Server
 
         tcp_thread = Thread.new {handle_tcp_endpoint(tcp_addrinfo)}
         udp_thread = Thread.new {handle_udp_endpoint(udp_addrinfo)}
-        [tcp_thread,udp_thread].each(&:join)
     end
 
     def handle_tcp_endpoint(addrinfo) # Handling of TCP streams
@@ -51,15 +50,13 @@ class Server
                     loop do
                         begin
                             ready = IO.select([client],nil,nil,@TIMEOUT_CLIENT)
-                            raise if !ready
-                            puts client.recv(10)
+                            raise unless ready
+                            client.recv(10)
                         rescue
-                            puts "Client #{client} unresponsive. Trying again."
+                            puts "Client #{client} is unresponsive. Trying again."
                             ready = IO.select([client],nil,nil,@TIMEOUT_CLIENT) 
-                            if !ready
-                                puts @clients
+                            unless ready
                                 @mutex_clients.synchronize{@clients.delete(client)}
-                                puts @clients
                                 puts "(Server) Client on socket #{client} has disconnected."
                                 client.close
                                 Thread.current.kill                                                              
@@ -85,7 +82,7 @@ end
 class Client 
     def initialize()
         @id = SecureRandom.uuid
-        server_connection
+        Thread.new{server_connection}
     end
 
     def server_connection
@@ -98,15 +95,15 @@ class Client
         end
 
         loop do # Loop to uphold TCP stream
-            sleep(Random.rand(4..40))
+            sleep(1)
             tcp_socket.write(1)
             tcp_socket.flush
         end
     end
 end
 
-Thread.new{Server.new}
+Server.new
 
 Client.new
+Client.new
 sleep()
-
