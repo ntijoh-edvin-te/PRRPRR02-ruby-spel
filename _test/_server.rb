@@ -16,13 +16,13 @@ class Server
     def initialize()
         @SESSION_ID = SecureRandom.uuid
         @TCP_ADDRINFO = Addrinfo.tcp("127.0.0.1",5000)
-        @UDP_ADDRINFO = Addrinfo.udp("127.0.0.1",0)
+        @UDP_ADDRINFO = Addrinfo.udp("127.0.0.1",13)
         @TIMEOUT_CLIENT = 5
         @clients = []
 
         Thread.new {tcp_handler(@TCP_ADDRINFO)}
         Thread.new {udp_handler(@UDP_ADDRINFO)}
-        
+
         puts "(Server) Started with session id: #{@SESSION_ID}"
     end
 
@@ -39,6 +39,8 @@ class Server
                     client_socket, _ = socket.accept
                     puts "(Server) New client connected: #{client_socket}"
                     @clients << client_socket
+                    client_socket.write(Socket.unpack_sockaddr_in(@UDP_ADDRINFO))
+                    client_socket.flush
                 end
       
                 ready[0].each do |client|
@@ -73,13 +75,18 @@ end
 class Client 
     def initialize()
         @SESSION_ID = SecureRandom.uuid
+        
+        host = Addrinfo
+        
         Thread.new{tcp_handler}
+        Thread.new{udp_handler(host)}
     end
 
     def tcp_handler
         tcp_socket = Socket.new(AF_INET, SOCK_STREAM)
         begin
             tcp_socket.connect(Addrinfo.tcp("127.0.0.1",5000))
+            @TARGET_SOCKET = tcp_socket.recv(32)
         rescue => e
             puts "(Client) Errored when attempting TCP 3-way handshake #{e}"
             retry
@@ -91,6 +98,11 @@ class Client
             tcp_socket.flush
         end
     end
+
+    def udp_handler(host)
+          
+    end
+
 end
 
 Server.new
