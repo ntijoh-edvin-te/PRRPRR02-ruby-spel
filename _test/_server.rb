@@ -8,7 +8,7 @@ class Server
     def initialize()
         # Session variables
         @server_session_id = SecureRandom.uuid
-        puts "Server session id: #{@server_session_id}"
+        puts "Started server with session id: #{@server_session_id}"
 
         @clients = []
         @players = []
